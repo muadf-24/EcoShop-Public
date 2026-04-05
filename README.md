@@ -70,3 +70,9 @@ flutter test
 Built with ❤️ for a greener planet.
 
 <img width="1376" height="768" alt="EcoShop" src="https://github.com/user-attachments/assets/2173faeb-2c3a-4ce5-ac7e-3ae290c81626" />
+
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/23f41e20-1a5a-4eb3-9436-5a2c2f118e04" />
+
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/ddce673a-d7e4-46bd-8747-62267e302be4" />
+
+
