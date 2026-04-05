@@ -6,7 +6,7 @@ EcoShop is a premium, multi-platform e-commerce solution built with Flutter and 
 
 - **Real-time Discovery**: Advanced product filtering, search, and categorization.
 - **Dynamic Cart & Checkout**: Seamless shopping flow with promo code support and Stripe integration.
-- **Advanced Profiles**: User avatar management, saved address reuse, and order history.<img width="1376" height="768" alt="EcoShop" src="https://github.com/user-attachments/assets/2173faeb-2c3a-4ce5-ac7e-3ae290c81626" />
+- **Advanced Profiles**: User avatar management, saved address reuse, and order history.
 
 - **Offline-First Sync**: Automatic data reconciliation between local storage (Hive) and Firestore.
 - **Premium UX**: Smooth animations (`flutter_animate`), shimmer effects, and dark mode support.
@@ -70,3 +70,5 @@ flutter test
 ---
 
 Built with ❤️ for a greener planet.
+
+<img width="1376" height="768" alt="EcoShop" src="https://github.com/user-attachments/assets/2173faeb-2c3a-4ce5-ac7e-3ae290c81626" />
