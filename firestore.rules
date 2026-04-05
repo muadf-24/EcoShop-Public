@@ -1,0 +1,276 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ═══════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS - Security & Validation
+    // ═══════════════════════════════════════════════════════════════
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user is admin (future extension)
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Validate email format
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    // Validate string length
+    function isValidLength(str, min, max) {
+      return str.size() >= min && str.size() <= max;
+    }
+    
+    // Validate timestamp is recent (within last 5 seconds)
+    function isRecentTimestamp(timestamp) {
+      return timestamp > request.time - duration.value(5, 's') &&
+             timestamp <= request.time;
+    }
+    
+    // Check if price is valid (positive number with max 2 decimal places)
+    function isValidPrice(price) {
+      return price is number && price >= 0 && price <= 1000000;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // USER PROFILES - /users/{userId}
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /users/{userId} {
+      // Read: User can read their own profile
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Create: Only during registration, must match auth UID
+      allow create: if isOwner(userId) &&
+                       request.resource.data.keys().hasAll(['name', 'email', 'created_at']) &&
+                       isValidEmail(request.resource.data.email) &&
+                       isValidLength(request.resource.data.name, 2, 100) &&
+                       request.resource.data.created_at == request.time;
+      
+      // Update: Users can only update their own profile with limited fields
+      allow update: if isOwner(userId) &&
+                       // Cannot change email (use Firebase Auth for that)
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email', 'created_at'])) &&
+                       // Name validation if changed
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name']) ||
+                        isValidLength(request.resource.data.name, 2, 100)) &&
+                       // Phone validation if provided
+                       (!request.resource.data.keys().hasAny(['phone']) ||
+                        isValidLength(request.resource.data.phone, 10, 20)) &&
+                       request.resource.data.updated_at == request.time;
+      
+      // Delete: Only admins can delete users
+      allow delete: if isAdmin();
+      
+      // ───────────────────────────────────────────────────────────
+      // USER ORDERS - /users/{userId}/orders/{orderId}
+      // ───────────────────────────────────────────────────────────
+      
+      match /orders/{orderId} {
+        // Read: User can read their own orders
+        allow read: if isOwner(userId) || isAdmin();
+        
+        // Create: User can create orders with validation
+        allow create: if isOwner(userId) &&
+                         request.resource.data.keys().hasAll([
+                           'items', 'subtotal', 'tax', 'shipping', 
+                           'total', 'status', 'shipping_address', 
+                           'payment_method', 'created_at'
+                         ]) &&
+                         // Validate order totals
+                         isValidPrice(request.resource.data.subtotal) &&
+                         isValidPrice(request.resource.data.tax) &&
+                         isValidPrice(request.resource.data.shipping) &&
+                         isValidPrice(request.resource.data.total) &&
+                         request.resource.data.discount >= 0 &&
+                         // Total must be subtotal + tax + shipping - discount
+                         request.resource.data.total == 
+                           request.resource.data.subtotal + 
+                           request.resource.data.tax + 
+                           request.resource.data.shipping - 
+                           request.resource.data.discount &&
+                         // Items must be an array with at least one item
+                         request.resource.data.items is list &&
+                         request.resource.data.items.size() > 0 &&
+                         request.resource.data.items.size() <= 100 &&
+                         // Status must be 'Pending' on creation
+                         request.resource.data.status == 'Pending' &&
+                         // Timestamp validation
+                         request.resource.data.created_at == request.time &&
+                         // Shipping address validation
+                         request.resource.data.shipping_address is map &&
+                         request.resource.data.shipping_address.keys().hasAll([
+                           'full_name', 'phone', 'address_line1', 
+                           'city', 'state', 'postal_code', 'country'
+                         ]);
+        
+        // Update: Only admin can update order status
+        allow update: if isAdmin() &&
+                         request.resource.data.diff(resource.data)
+                           .affectedKeys().hasOnly(['status', 'updated_at']) &&
+                         request.resource.data.status in [
+                           'Pending', 'Processing', 'Shipped', 
+                           'Delivered', 'Cancelled', 'Refunded'
+                         ];
+        
+        // Delete: Only admin can delete orders
+        allow delete: if isAdmin();
+      }
+      
+      // ───────────────────────────────────────────────────────────
+      // USER WISHLIST - /users/{userId}/wishlist/{productId}
+      // ───────────────────────────────────────────────────────────
+      
+      match /wishlist/{productId} {
+        // Read: User can read their own wishlist
+        allow read: if isOwner(userId);
+        
+        // Create: User can add items to their wishlist
+        allow create: if isOwner(userId) &&
+                         request.resource.data.keys().hasAll(['productId', 'addedAt']) &&
+                         request.resource.data.productId == productId &&
+                         request.resource.data.addedAt == request.time;
+        
+        // Update: Not allowed (delete and recreate instead)
+        allow update: if false;
+        
+        // Delete: User can remove items from their wishlist
+        allow delete: if isOwner(userId);
+      }
+      
+      // ───────────────────────────────────────────────────────────
+      // USER ADDRESSES - /users/{userId}/addresses/{addressId}
+      // ───────────────────────────────────────────────────────────
+      
+      match /addresses/{addressId} {
+        // Read: User can read their own addresses
+        allow read: if isOwner(userId);
+        
+        // Create: User can create addresses with validation
+        allow create: if isOwner(userId) &&
+                         request.resource.data.keys().hasAll([
+                           'full_name', 'phone', 'address_line1',
+                           'city', 'state', 'postal_code', 'country',
+                           'is_default', 'created_at'
+                         ]) &&
+                         isValidLength(request.resource.data.full_name, 2, 100) &&
+                         isValidLength(request.resource.data.phone, 10, 20) &&
+                         isValidLength(request.resource.data.address_line1, 5, 200) &&
+                         isValidLength(request.resource.data.city, 2, 100) &&
+                         isValidLength(request.resource.data.state, 2, 100) &&
+                         isValidLength(request.resource.data.postal_code, 4, 20) &&
+                         request.resource.data.is_default is bool &&
+                         request.resource.data.created_at == request.time;
+        
+        // Update: User can update their addresses
+        allow update: if isOwner(userId) &&
+                         !request.resource.data.diff(resource.data)
+                           .affectedKeys().hasAny(['created_at']) &&
+                         request.resource.data.updated_at == request.time;
+        
+        // Delete: User can delete their addresses
+        allow delete: if isOwner(userId);
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // PRODUCTS - /products/{productId}
+    // Public read, admin write
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /products/{productId} {
+      // Read: Anyone can read products (public catalog)
+      allow read: if true;
+      
+      // Create/Update/Delete: Only admins
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // CATEGORIES - /categories/{categoryId}
+    // Public read, admin write
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /categories/{categoryId} {
+      // Read: Anyone can read categories
+      allow read: if true;
+      
+      // Create/Update/Delete: Only admins
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // REVIEWS - /products/{productId}/reviews/{reviewId}
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /products/{productId}/reviews/{reviewId} {
+      // Read: Anyone can read reviews
+      allow read: if true;
+      
+      // Create: Authenticated users can create reviews
+      allow create: if isAuthenticated() &&
+                       request.resource.data.keys().hasAll([
+                         'user_id', 'user_name', 'rating', 
+                         'comment', 'created_at'
+                       ]) &&
+                       request.resource.data.user_id == request.auth.uid &&
+                       request.resource.data.rating >= 1 &&
+                       request.resource.data.rating <= 5 &&
+                       isValidLength(request.resource.data.comment, 10, 1000) &&
+                       request.resource.data.created_at == request.time;
+      
+      // Update: User can update their own review
+      allow update: if isAuthenticated() &&
+                       resource.data.user_id == request.auth.uid &&
+                       !request.resource.data.diff(resource.data)
+                         .affectedKeys().hasAny(['user_id', 'created_at']) &&
+                       request.resource.data.updated_at == request.time;
+      
+      // Delete: User can delete their own review, or admin can delete any
+      allow delete: if (isAuthenticated() && resource.data.user_id == request.auth.uid) ||
+                       isAdmin();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // NOTIFICATIONS - /users/{userId}/notifications/{notificationId}
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /users/{userId}/notifications/{notificationId} {
+      // Read: User can read their own notifications
+      allow read: if isOwner(userId);
+      
+      // Create: System or admin only (simulated by checking specific fields)
+      allow create: if isAdmin() || 
+                       (isOwner(userId) && 
+                        request.resource.data.created_at == request.time);
+      
+      // Update: User can mark as read
+      allow update: if isOwner(userId) &&
+                       request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['is_read', 'read_at']);
+      
+      // Delete: User can delete their notifications
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // DEFAULT DENY - Block all other access
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

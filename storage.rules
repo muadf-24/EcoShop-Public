@@ -1,0 +1,144 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ═══════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Check if file is an image
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Check file size (max 5MB for images, 10MB for documents)
+    function isValidImageSize() {
+      return request.resource.size <= 5 * 1024 * 1024;
+    }
+    
+    function isValidDocumentSize() {
+      return request.resource.size <= 10 * 1024 * 1024;
+    }
+    
+    // Check if image dimensions are reasonable
+    function hasValidImageDimensions() {
+      return request.resource.metadata.width != null &&
+             request.resource.metadata.height != null &&
+             int(request.resource.metadata.width) <= 4096 &&
+             int(request.resource.metadata.height) <= 4096;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // USER PROFILE PICTURES - /users/{userId}/profile/{fileName}
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /users/{userId}/profile/{fileName} {
+      // Read: Anyone can view profile pictures (public)
+      allow read: if true;
+      
+      // Write: Only the user can upload their profile picture
+      allow write: if isOwner(userId) &&
+                      isImage() &&
+                      isValidImageSize() &&
+                      fileName.matches('.*\\.(jpg|jpeg|png|gif|webp)$');
+      
+      // Delete: Only the user can delete their profile picture
+      allow delete: if isOwner(userId);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // PRODUCT IMAGES - /products/{productId}/{fileName}
+    // Public read, admin write (requires custom claim)
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /products/{productId}/{fileName} {
+      // Read: Anyone can view product images (public catalog)
+      allow read: if true;
+      
+      // Write: Only admins (check custom claim)
+      // Note: Set custom claims via Admin SDK: admin.auth().setCustomUserClaims(uid, {admin: true})
+      allow write: if isAuthenticated() &&
+                      request.auth.token.admin == true &&
+                      isImage() &&
+                      isValidImageSize() &&
+                      fileName.matches('.*\\.(jpg|jpeg|png|webp)$');
+      
+      // Delete: Only admins
+      allow delete: if isAuthenticated() &&
+                       request.auth.token.admin == true;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // REVIEW IMAGES - /reviews/{userId}/{reviewId}/{fileName}
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /reviews/{userId}/{reviewId}/{fileName} {
+      // Read: Anyone can view review images
+      allow read: if true;
+      
+      // Write: Only the review author
+      allow write: if isOwner(userId) &&
+                      isImage() &&
+                      isValidImageSize() &&
+                      fileName.matches('.*\\.(jpg|jpeg|png)$');
+      
+      // Delete: Review author or admin
+      allow delete: if isOwner(userId) ||
+                       (isAuthenticated() && request.auth.token.admin == true);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ORDER RECEIPTS/INVOICES - /orders/{userId}/{orderId}/{fileName}
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /orders/{userId}/{orderId}/{fileName} {
+      // Read: Only the order owner
+      allow read: if isOwner(userId);
+      
+      // Write: System generated (admin only)
+      allow write: if isAuthenticated() &&
+                      request.auth.token.admin == true &&
+                      isValidDocumentSize() &&
+                      fileName.matches('.*\\.(pdf)$');
+      
+      // Delete: Admin only
+      allow delete: if isAuthenticated() &&
+                       request.auth.token.admin == true;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // TEMPORARY UPLOADS - /temp/{userId}/{fileName}
+    // Short-lived storage for image processing
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /temp/{userId}/{fileName} {
+      // Read: Only the uploader within 1 hour
+      allow read: if isOwner(userId) &&
+                     resource.timeCreated > request.time - duration.value(1, 'h');
+      
+      // Write: Authenticated users, max 10MB
+      allow write: if isOwner(userId) &&
+                      request.resource.size <= 10 * 1024 * 1024;
+      
+      // Delete: Owner or automatic cleanup after 24 hours
+      allow delete: if isOwner(userId);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // DEFAULT DENY - Block all other paths
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

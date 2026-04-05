@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "794359593826",
+    "project_id": "ecoshop-store-2026",
+    "storage_bucket": "ecoshop-store-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:794359593826:android:fd284951911dd341ec4a3b",
+        "android_client_info": {
+          "package_name": "com.example.ecoshop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsTa4CS-KEFwymacCyybsfgK_I5WrFfQE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
