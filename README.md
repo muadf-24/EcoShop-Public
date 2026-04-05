@@ -6,7 +6,7 @@ EcoShop is a premium, multi-platform e-commerce solution built with Flutter and 
 
 - **Real-time Discovery**: Advanced product filtering, search, and categorization.
 - **Dynamic Cart & Checkout**: Seamless shopping flow with promo code support and Stripe integration.
-- **Advanced Profiles**: User avatar management, saved address reuse, and order history.![Uploading EcoShop.png…]()
+- **Advanced Profiles**: User avatar management, saved address reuse, and order history.<img width="1376" height="768" alt="EcoShop" src="https://github.com/user-attachments/assets/2173faeb-2c3a-4ce5-ac7e-3ae290c81626" />
 
 - **Offline-First Sync**: Automatic data reconciliation between local storage (Hive) and Firestore.
 - **Premium UX**: Smooth animations (`flutter_animate`), shimmer effects, and dark mode support.
@@ -19,7 +19,9 @@ EcoShop is a premium, multi-platform e-commerce solution built with Flutter and 
 - **Backend**: [Firebase](https://firebase.google.com) (Auth, Firestore, Storage, Messaging)
 - **Local Storage**: [Hive](https://pub.dev/packages/hive) & [Shared Preferences](https://pub.dev/packages/shared_preferences)
 - **Dependency Injection**: [GetIt](https://pub.dev/packages/get_it)
-- **Payments**: [flutter_stripe](https://pub.dev/packages/flutter_stripe)
+- **Payments**: [flutter_stripe](https://pub.dev/p<img width="1376" height="768" alt="EcoShop" src="https://github.com/user-attachments/assets/844938ef-d528-4cfe-b212-2d0c166511eb" />
+![Uploading EcoShop.png…]()
+ackages/flutter_stripe)
 - **Animations**: [flutter_animate](https://pub.dev/packages/flutter_animate) & [Lottie](https://pub.dev/packages/lottie)
 
 ## 🏗️ Architecture
