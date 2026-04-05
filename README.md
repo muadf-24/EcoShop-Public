@@ -19,9 +19,7 @@ EcoShop is a premium, multi-platform e-commerce solution built with Flutter and 
 - **Backend**: [Firebase](https://firebase.google.com) (Auth, Firestore, Storage, Messaging)
 - **Local Storage**: [Hive](https://pub.dev/packages/hive) & [Shared Preferences](https://pub.dev/packages/shared_preferences)
 - **Dependency Injection**: [GetIt](https://pub.dev/packages/get_it)
-
-
-ackages/flutter_stripe)
+- **Payments**: [flutter_stripe](https://pub.dev/packages/flutter_stripe)
 - **Animations**: [flutter_animate](https://pub.dev/packages/flutter_animate) & [Lottie](https://pub.dev/packages/lottie)
 
 ## 🏗️ Architecture
